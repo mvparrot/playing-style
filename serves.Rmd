@@ -94,3 +94,10 @@ ggplot(data=servers, aes(x=center.x, y=center.y)) +
              aes(colour=factor(serve_classification)), alpha=0.5, size=2) + 
   facet_grid(server~side) + theme(legend.position="none")
 ```
+
+# Start point
+
+```{r}
+ggplot(data=atp_serves, aes(x=start.x, y=start.y)) + 
+  geom_point() + facet_wrap(~side) + xlim(c(11, 11.5))
+```
