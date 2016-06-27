@@ -15,11 +15,11 @@ library(purrr)
 
 ## Load data
 
-```{r cars}
+```{r load}
 load("atp_serves.RData")
 ```
 
-## Including Plots
+## Quick check a couple of players
 
 
 ```{r fed-djo, echo=FALSE}
