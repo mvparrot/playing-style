@@ -7,16 +7,73 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+g <- function(coef, t) coef %*% t^(0:3)
+g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
+
+fedvmurray <- atp_serves[atp_serves$matchid=="AO2016F_Djokovic_Murray",]
+table(atp_serves$server)
+table(atp_serves$receiver)
+## XYZ Coordinates at different times ##
+
+get_position<- function(coef_x,coef_y,coef_z,t){
+  x<- g(coef_x,t)
+  y<- g(coef_y,t)
+  z<- g(coef_z,t)
+data.frame(x=x,y=y,z=z,t=t)
+  }
+  postion_matrix <- function(coef_x,coef_y,coef_z,Start,End, Interval){
+    times<- seq(start,end,by=interval)
+    xyz<- lapply(times,get_position,coef_x=coef_x,coef_y=coef_y,coef_z=coef_z)
+  do.call("rbind",xyz)
+  }
+
+# Test #
+get_position(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]), unlist(atp_serves[1,c("raw.y0.1","raw.y1.1","raw.y2.1","raw.y3.1")]),unlist(atp_serves[1,c("raw.z0.1","raw.z1.1","raw.z2.1","raw.z3.1")]),atp_serves$start.1[1])
 ```
 
 ## R Markdown
+List of Serve Characteristics for feature selection:
+1st vs 2nd Serve
+Points in game? if reciever is on 40 or server is on 40. Does this differ?
+Winning serves
+Receivers Hand (R/L)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Types and key points:
+Kick Serve:
+  - Height of bounce (Z at )
+      - Where was the Ball received?
+  - Height over the net
+  - Location ball is struck (is this different? To get top spin is it in a different spot)
+  - Second serve characteristics
+  - Speed
+  - Spin
+    - How do we calculate this?
+  - Location in Service Box
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Down the tee (Flat vs Spin/Kick)
+  - Ball location in service box, depth looks important
+  - Speed
+  - Location ball is hit. For right handers in the ad court this could be back past the centre line on the      deuce side
+Outwide (Flat vs Spin/Kick)
 
-```{r cars}
-summary(cars)
+
+  
+
+```{r}
+## Roger Federer Receiving ##
+fedr <- atp_serves %>% filter(receiver == "FEDERER")
+ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
+
+## Serve location by player ##
+ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
+
+## Most Aces ##
+table(atp_serves$server, atp_serves$serve_classification== "0")
+
+## Raonic Aces ##
+Rao<- atp_serves %>% filter(server == "RAONIC")
+ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
+
 ```
 
 ## Including Plots
