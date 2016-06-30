@@ -11,7 +11,12 @@ g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
 
 fedvmurray <- atp_serves[atp_serves$matchid=="AO2016F_Djokovic_Murray",]
+<<<<<<< HEAD
 
+=======
+table(atp_serves$server)
+table(atp_serves$receiver)
+>>>>>>> master
 ## XYZ Coordinates at different times ##
 
 get_position<- function(coef_x,coef_y,coef_z,t){
@@ -54,6 +59,7 @@ Down the tee (Flat vs Spin/Kick)
   - Speed
   - Location ball is hit. For right handers in the ad court this could be back past the centre line on the      deuce side
 Outwide (Flat vs Spin/Kick)
+<<<<<<< HEAD
 
 
   
@@ -89,6 +95,26 @@ Interestingly you can see how the net slouches in the the middle of the court.
 ```{r}
 # Different points in games #
 ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_point() + facet_wrap(~receiver_score)
+=======
+
+
+  
+
+```{r}
+## Roger Federer Receiving ##
+fedr <- atp_serves %>% filter(receiver == "FEDERER")
+ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
+
+## Serve location by player ##
+ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
+
+## Most Aces ##
+table(atp_serves$server, atp_serves$serve_classification== "0")
+
+## Raonic Aces ##
+Rao<- atp_serves %>% filter(server == "RAONIC")
+ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
+>>>>>>> master
 
 ```
 
