@@ -7,16 +7,17 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+
 g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
 
 fedvmurray <- atp_serves[atp_serves$matchid=="AO2016F_Djokovic_Murray",]
-<<<<<<< HEAD
 
-=======
+
 table(atp_serves$server)
 table(atp_serves$receiver)
->>>>>>> master
+
 ## XYZ Coordinates at different times ##
 
 get_position<- function(coef_x,coef_y,coef_z,t){
@@ -38,10 +39,10 @@ get_position(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]
 ## R Markdown
 List of Serve Characteristics for feature selection:
 1st vs 2nd Serve
-Points in game? if reciever is on 40 or server is on 40. Does this differ?
+Points in game? if reciever is on 40 or server is on 40. Does this differ? are there risk takers?
 Winning serves
 Receivers Hand (R/L)
-
+Riskiness and 
 Types and key points:
 Kick Serve:
   - Height of bounce (Z at )
@@ -50,7 +51,8 @@ Kick Serve:
   - Location ball is struck (is this different? To get top spin is it in a different spot)
   - Second serve characteristics
   - Speed
-  - Spin
+  - Spin? 
+    - squared coefficients c2 --generate points function
     - How do we calculate this?
   - Location in Service Box
 
@@ -59,7 +61,12 @@ Down the tee (Flat vs Spin/Kick)
   - Speed
   - Location ball is hit. For right handers in the ad court this could be back past the centre line on the      deuce side
 Outwide (Flat vs Spin/Kick)
-<<<<<<< HEAD
+
+Variables needed for Clustering:
+Player - Server
+X, Z, Y
+Speed
+Receiver
 
 
   
@@ -95,8 +102,8 @@ Interestingly you can see how the net slouches in the the middle of the court.
 ```{r}
 # Different points in games #
 ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_point() + facet_wrap(~receiver_score)
-=======
 
+```
 
   
 
@@ -114,7 +121,7 @@ table(atp_serves$server, atp_serves$serve_classification== "0")
 ## Raonic Aces ##
 Rao<- atp_serves %>% filter(server == "RAONIC")
 ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
->>>>>>> master
+
 
 ```
 
@@ -122,25 +129,94 @@ ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-## 
+### Mitchell code for Court Position of Ball ###
+traj_coords <- function(start, dir, flip, c0, c1, c2, c3, tm=0) {
+  tm <- tm + start
+  if (dir != "z") {
+    c0 <- flip * c0
+    c1 <- flip * c1
+    c2 <- flip * c2
+    c3 <- flip * c3
+  }
+  pos <- c0 + c1*tm + c2*tm^2 + c3*tm^3
+  return(pos)
+}
+
+GeneratePoints <- function(data, ..., arc1=10, arc3=0, plot=FALSE){
+  require(tidyr)
+  require(dplyr)
+  require(purrr)
+  
+  #arc2*(start.3 - (start.1+duration.arc1))
+  data <- data %>% mutate(duration = arc1*duration.arc1 + arc3*duration.arc3, flip=sign(raw.x0.1))
+  
+  dots <- c("serveid", sapply(substitute(list(...))[-1], deparse))
+  extravars <- match(dots[dots%in%colnames(data)], colnames(data))
+  
+  out <- data.frame()
+  
+  if(arc1!=0){
+    arc1p <- data %>% select(extravars, start.1, duration.arc1, flip, raw.x0.1:raw.z3.1) %>%
+      gather(coef, value, -(1:length(extravars)), -start.1, -duration.arc1, -flip) %>%
+      separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>%
+      select(-junk1, -junk2) %>%
+      mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>%
+      spread(coef, value) %>%
+      rename("start" = `start.1`, "duration"=`duration.arc1`, "c0"=`0`, "c1"=`1`, "c2"=`2`, "c3"=`3`)
+      arc1points <- seq(0,1,length.out=arc1) %>%
+        map_df(function(x) mutate(rowwise(arc1p), time=start+duration*x, pos=traj_coords(start, dir, flip, c0, c1, c2, c3, tm=duration*x)))
+      out <- rbind(out, cbind(arc=1, arc1points))
+  }
+  
+  if(arc3!=0){
+    arc3p <- data %>% select(extravars, start.3, duration.arc3, flip, raw.x0.3:raw.z3.3) %>%
+      gather(coef, value, -(1:length(extravars)), -start.3, -duration.arc3, -flip) %>%
+      separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>%
+      select(-junk1, -junk2) %>%
+      mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>%
+      spread(coef, value) %>%
+      rename("start" = `start.3`, "duration"=`duration.arc3`, "c0"=`0`, "c1"=`1`, "c2"=`2`, "c3"=`3`)
+    arc3points <- seq(0,1, length.out=arc3) %>%
+      map_df(function(x) mutate(rowwise(arc3p), time=start+duration*x, pos=traj_coords(start, dir, flip, c0, c1, c2, c3, tm=duration*x)))
+    out <- rbind(out, cbind(arc=3, arc3points))
+  }
+  
+  if(plot){
+    extravars <- match(dots[dots%in%colnames(out)], colnames(out))
+    out <- out %>% select(arc, extravars, flip, dir, time, pos) %>%
+      spread(dir, pos)
+  }
+  
+  return(out)
+}
+
+#DEMO
+
+sample <- GeneratePoints(atp_serves[1:10,], server, arc3=10,plot=TRUE)
+
+ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color = 'black', size = 0.5) +
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid), data=sample)
+
+ggplot() + geom_segment(aes(x=-11.89, xend=11.89, y=0, yend=0), size=0.5) + 
+  geom_segment(aes(x=0,xend=0,y=0,yend=1.07), color='darkgrey') + 
+  geom_line(aes(x=x, y=z, group=serveid, colour=time), data=sample)
+
+### Court Trace ###
+courtTrace <- data.frame(x = c(-11.89, -11.89, 0, 0, 0, 0, 0, 0, 11.89, 11.89, -11.89, -11.89, 11.89, 11.89, -11.89, -6.4, -6.4, 6.4, 6.4, 6.4, -6.4),
+                         y = c(5.49, -5.49, -5.49, -6.5, -6.5, 6.5, 6.5, -5.49, -5.49, 5.49, 5.49, 4.115, 4.115, -4.115, -4.115, -4.115, 4.115, 4.115, -4.115, 0, 0),
+                         z = c(0, 0, 0, 0, 1.09, 1.09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
+library(plotly)
+plot_ly(sample, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
+  add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
+  layout(scene=list(aspectmode="data"))
+
 
 library(dplyr)
 library(purrr)
 
 
-get_location <- function(a, b, c, d, time) c(a, b, c, d) %*% time ^ (0:3)
-get_location <- Vectorize(get_location)
-
-locations <- function(a, b, c, d, start, end, interval = 0.05) {
-  times <- seq(start, end, by = interval)
-  data.frame(time = times, location = get_location(a, b, c, d, times))
-}
-
-temp <- atp_serves[1:3,] %>%
-  by_row(~locations(.$raw.x0.1, .$raw.x1.1, .$raw.x2.1, .$raw.x3.1, .$start.1, .$start.1 + .$duration.arc1), .to = "xlocation")
-
-
-temp$xlocation
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
