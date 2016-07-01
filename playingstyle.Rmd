@@ -8,6 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
+library(dplyr)
+
+load("atp_serves.RData")
 
 g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
@@ -76,9 +79,6 @@ Receiver
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
 
-## Serve location by player ##
-ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
-
 ## Most Aces ##
 table(atp_serves$server, atp_serves$serve_classification== "0")
 
@@ -111,9 +111,6 @@ ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_po
 ## Roger Federer Receiving ##
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
-
-## Serve location by player ##
-ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
 
 ## Most Aces ##
 table(atp_serves$server, atp_serves$serve_classification== "0")
