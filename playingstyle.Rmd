@@ -11,7 +11,12 @@ load("~/Documents/UNI/Winter Research Project/Data/atp_serves.RData")
 
 library(ggplot2)
 library(dplyr)
+<<<<<<< HEAD
 library(purrr)
+=======
+
+load("atp_serves.RData")
+>>>>>>> master
 
 g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
@@ -70,11 +75,15 @@ Serve classification
 
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
+<<<<<<< HEAD
 ```
 ## Serve location by player ##
 ```{r}
 ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
 ```
+=======
+
+>>>>>>> master
 ## Most Aces ##
 
 ```{r}
@@ -109,9 +118,6 @@ ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_po
 ## Roger Federer Receiving ##
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
-
-## Serve location by player ##
-ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
 
 ## Most Aces ##
 table(atp_serves$server, atp_serves$serve_classification== "0")
