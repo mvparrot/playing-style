@@ -7,36 +7,27 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+load("~/Documents/UNI/Winter Research Project/playing-style/atp_serves.RData")
+
 library(ggplot2)
+library(dplyr)
+library(purrr)
 
 g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
 
 fedvmurray <- atp_serves[atp_serves$matchid=="AO2016F_Djokovic_Murray",]
 
-
 table(atp_serves$server)
 table(atp_serves$receiver)
 
-## XYZ Coordinates at different times ##
 
-get_position<- function(coef_x,coef_y,coef_z,t){
-  x<- g(coef_x,t)
-  y<- g(coef_y,t)
-  z<- g(coef_z,t)
-data.frame(x=x,y=y,z=z,t=t)
-  }
-  postion_matrix <- function(coef_x,coef_y,coef_z,Start,End, Interval){
-    times<- seq(start,end,by=interval)
-    xyz<- lapply(times,get_position,coef_x=coef_x,coef_y=coef_y,coef_z=coef_z)
-  do.call("rbind",xyz)
-  }
 
-# Test #
-get_position(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]), unlist(atp_serves[1,c("raw.y0.1","raw.y1.1","raw.y2.1","raw.y3.1")]),unlist(atp_serves[1,c("raw.z0.1","raw.z1.1","raw.z2.1","raw.z3.1")]),atp_serves$start.1[1])
+
 ```
 
 ## R Markdown
+*Brain storm of serve styles*
 List of Serve Characteristics for feature selection:
 1st vs 2nd Serve
 Points in game? if reciever is on 40 or server is on 40. Does this differ? are there risk takers?
@@ -64,25 +55,33 @@ Outwide (Flat vs Spin/Kick)
 
 Variables needed for Clustering:
 Player - Server
-X, Z, Y
+X, Z, Y From start to finish.
+Coefficients 
 Speed
 Receiver
+Volicity 
+Serve
+Serve classification
 
 
-  
-
-```{r}
+** Random Plots ***  
 ## Roger Federer Receiving ##
+```{r}
+
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
-
+```
 ## Serve location by player ##
+```{r}
 ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
-
+```
 ## Most Aces ##
-table(atp_serves$server, atp_serves$serve_classification== "0")
 
+```{r}
+table(atp_serves$server, atp_serves$serve_classification== "0")
+```
 ## Raonic Aces ##
+``` {r}
 Rao<- atp_serves %>% filter(server == "RAONIC")
 ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
 ggplot(Rao, aes(x=start.x, y=start.z, color=factor(serve_classification == "0"))) + geom_point() 
@@ -105,7 +104,6 @@ ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_po
 
 ```
 
-  
 
 ```{r}
 ## Roger Federer Receiving ##
@@ -121,8 +119,6 @@ table(atp_serves$server, atp_serves$serve_classification== "0")
 ## Raonic Aces ##
 Rao<- atp_serves %>% filter(server == "RAONIC")
 ggplot(Rao, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
-
-
 ```
 
 
@@ -191,7 +187,12 @@ GeneratePoints <- function(data, ..., arc1=10, arc3=0, plot=FALSE){
 }
 
 #DEMO
+### Court Trace ###
+courtTrace <- data.frame(x = c(-11.89, -11.89, 0, 0, 0, 0, 0, 0, 11.89, 11.89, -11.89, -11.89, 11.89, 11.89, -11.89, -6.4, -6.4, 6.4, 6.4, 6.4, -6.4),
+                         y = c(5.49, -5.49, -5.49, -6.5, -6.5, 6.5, 6.5, -5.49, -5.49, 5.49, 5.49, 4.115, 4.115, -4.115, -4.115, -4.115, 4.115, 4.115, -4.115, 0, 0),
+                         z = c(0, 0, 0, 0, 1.09, 1.09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
 
+#DEMO
 sample <- GeneratePoints(atp_serves[1:10,], server, arc3=10,plot=TRUE)
 
 ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color = 'black', size = 0.5) +
@@ -202,10 +203,7 @@ ggplot() + geom_segment(aes(x=-11.89, xend=11.89, y=0, yend=0), size=0.5) +
   geom_segment(aes(x=0,xend=0,y=0,yend=1.07), color='darkgrey') + 
   geom_line(aes(x=x, y=z, group=serveid, colour=time), data=sample)
 
-### Court Trace ###
-courtTrace <- data.frame(x = c(-11.89, -11.89, 0, 0, 0, 0, 0, 0, 11.89, 11.89, -11.89, -11.89, 11.89, 11.89, -11.89, -6.4, -6.4, 6.4, 6.4, 6.4, -6.4),
-                         y = c(5.49, -5.49, -5.49, -6.5, -6.5, 6.5, 6.5, -5.49, -5.49, 5.49, 5.49, 4.115, 4.115, -4.115, -4.115, -4.115, 4.115, 4.115, -4.115, 0, 0),
-                         z = c(0, 0, 0, 0, 1.09, 1.09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
 
 library(plotly)
 plot_ly(sample, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
@@ -216,7 +214,81 @@ plot_ly(sample, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>
 library(dplyr)
 library(purrr)
 
+```
+
+### What Variables should be used for Cluster Analysis? ###
+
+``` {r}
+## Practice Cluster ##
+# Cluster Second Coefficients #
+test<- cbind(cluster=kmeans(atp_serves[,c("raw.x2.1", "raw.y2.1")], centers=2)$cluster, atp_serves)
+ggplot(test, aes(x=raw.x2.1, y=raw.y2.1, colour=cluster)) + geom_point() + facet_wrap(~side)
+ggplot(atp_serves, aes(x=x2.1, y=y2.1)) + geom_point() + facet_wrap(~side)
+# note: Coefficents looked to be flipped. Does not seem to give anything usefullooking at these coefficients. 
+
+
+
+
+```
+# Creating Sample for Hierarchical Cluster Analysis #
+First cluster analysis will just look at using a few different variables. Due to the differences in right handers serving to Ad and Deuce courts, the sample is split by the variable side to see what clusters are present on each side of the court (Ad=943, Deuce = 1057). These results will be compared later to see if the side of the court effects and gives rise to different clusters. 
+
+
+```{r}
+## Cluster analysis on Ad Court side ##
+adcourtclust<- atp_serves %>% filter(side=="Ad") %>% select(server, center.x, center.y, serve_classification, serve.x, start.x, start.y, start.z, net.clearance) 
+adcourtclust$serve_classification<- factor(adcourtclust$serve_classification)
+adcourtclust$serve.x<- factor(adcourtclust$serve.x)
+
+clusters <- hclust(dist(adcourtclust[, 2:9]))
+plot(clusters)
+clustercut<- cutree(clusters,5)
+adcourtclust$clust5<-clustercut
+ggplot(adcourtclust, aes(x=center.x, y=center.y, color=factor(clust5))) + geom_point()
+
+adcourtclustplot<- atp_serves %>% filter(side=="Ad") 
+adcourtclustplot$clust5 <- clustercut
+sampleclust5plot <- GeneratePoints(adcourtclustplot, clust5, server, arc3=10,plot=TRUE)
+ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color= 'Black', size = 0.5) +
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid, color=factor(clust5)), data=sampleclust5plot) 
+
+
+## Deuce Court ##
+
+deucecourtclust<- atp_serves %>% filter(side=="Deuce") %>% select(server, center.x, center.y, serve_classification, serve.x, start.x, start.y, start.z, net.clearance) 
+deucecourtclust$serve_classification<- factor(deucecourtclust$serve_classification)
+deucecourtclust$serve.x<- factor(deucecourtclust$serve.x)
+
+clusters2 <- hclust(dist(deucecourtclust[, 2:9]))
+plot(clusters2)
+clustercut2<- cutree(clusters2,4)
+deucecourtclust$clust4<-clustercut2
+ggplot(deucecourtclust, aes(x=center.x, y=center.y, color=factor(clust4))) + geom_point()
+
+deucecourtclustplot<- atp_serves %>% filter(side=="Deuce") 
+deucecourtclustplot$clust4 <- clustercut2
+deucesampleclust4plot <- GeneratePoints(deucecourtclustplot, clust4, server, arc3=10,plot=TRUE)
+ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color= 'Black', size = 0.5) +
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid, color=factor(clust4)), data=deucesampleclust4plot) 
+
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+** Theory on different types of serves **
+http://www.tennis4you.com/lesson-lounge/tennis4you/serve/4-different-serves.htm
+https://www.coachup.com/resources/tennis/tennis-different-serving-methods?utm_campaign=client_organic&utm_content=Tennis_resource_DIFFERENT_TYPES_OF_TENNIS_SERVES&utm_medium=Active&utm_source=PR
+
+4 types of Serves
+Flat Serve
+Slice Serve
+Top-Spin Serve
+Kick Serve
+
+
+```
+
+
+
