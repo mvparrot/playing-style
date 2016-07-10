@@ -11,12 +11,12 @@ load("~/Documents/UNI/Winter Research Project/Data/atp_serves.RData")
 
 library(ggplot2)
 library(dplyr)
-<<<<<<< HEAD
+
 library(purrr)
-=======
+
 
 load("atp_serves.RData")
->>>>>>> master
+
 
 g <- function(coef, t) coef %*% t^(0:3)
 g(unlist(atp_serves[1,c("raw.x0.1","raw.x1.1","raw.x2.1","raw.x3.1")]),atp_serves$start.1[1])
@@ -25,9 +25,6 @@ fedvmurray <- atp_serves[atp_serves$matchid=="AO2016F_Djokovic_Murray",]
 
 table(atp_serves$server)
 table(atp_serves$receiver)
-
-
-
 
 ```
 
@@ -75,15 +72,13 @@ Serve classification
 
 fedr <- atp_serves %>% filter(receiver == "FEDERER")
 ggplot(fedr, aes(x=center.x, y=center.y, color=factor(serve_classification))) + geom_point() + facet_wrap(~side)
-<<<<<<< HEAD
+
 ```
 ## Serve location by player ##
 ```{r}
 ggplot(atp_serves_sub, aes(x=start.y, y=start.z, color=factor(server))) + geom_point()
 ```
-=======
 
->>>>>>> master
 ## Most Aces ##
 
 ```{r}
@@ -113,6 +108,13 @@ ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve.x))) + geom_po
 
 ```
 
+
+```{r}
+# Serve classification by first and second serve #
+table(atp_serves$serve_classification, atp_serves$serve.x)
+```
+
+Note that there are 37 double faults in the data, 6 aces on the second serve and when filtering by first serve for clustering, 357 serves will be lost. 
 
 ```{r}
 ## Roger Federer Receiving ##
@@ -215,8 +217,6 @@ library(plotly)
 plot_ly(sample, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
   add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
   layout(scene=list(aspectmode="data"))
-
-
 library(dplyr)
 library(purrr)
 
@@ -284,21 +284,208 @@ ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color= 'Black', size 
 ```{r}
 
 ## Basic Hierarchical Cluster Using Given Variables ##
-# Note using first serve only #
-courtclust<- atp_serves %>% filter(serve.x=="1") %>% select(server, center.x, center.y, speed, start.x, start.y, start.z, net.clearance, height_off_bounce, angle.change, side) %>% mutate_each(funs(scale), 2:10)
+# Note using first serve only, filtering out faults #
+
+# Sample for Clustering #
+courtclust<- atp_serves %>% filter(serve.x=="1") %>% filter(serve_classification < 3) %>% select(serveid, server, center.x, center.y, speed, start.x, start.y, start.z, net.clearance, height_off_bounce, angle.change, side, direction.change) %>% mutate_each(funs(scale), 3:11)
 courtclust$side<- factor(courtclust$side)
 
+# Distance Calc #
+dist<- dist(courtclust[,3:11])
+clusters <- hclust(dist)
+plot(clusters, hang= -1)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.width=6, fig.height=4}
+# Cluster Stats #
+library(fpc)
+cl.stats <- NULL
+for (k in 2:15) {
+  cl <- cutree(clusters, k)
+  x <- cluster.stats(dist, cl)
+  cl.stats <- rbind(cl.stats, c(k, x$within.cluster.ss, x$wb.ratio, x$ch,
+                                    x$pearsongamma, x$dunn, x$dunn2))
+}
+colnames(cl.stats) <- c("cl","within.cluster.ss","wb.ratio", "ch", "pearsongamma", "dunn", "dunn2")
+cl.stats <- data.frame(cl.stats)
+cl.stats.m <- gather(cl.stats, key=stat, value=value, -cl)
+qplot(cl, value, data=cl.stats.m) + geom_line() + xlab("# clusters") + ylab("") +
+  facet_wrap(~stat, ncol=3, scales = "free_y") + theme_bw()
+```
+
+```{r}
+## Adding Different Cluster Solutions to Data for plotting ##
+courtclustplot<- atp_serves %>% filter(serve.x=="1") %>% filter(serve_classification < 3) %>% select(serveid, server, center.x, center.y, speed, start.x, start.y, start.z, net.clearance, height_off_bounce, angle.change, side, direction.change) 
+courtclustplot$side<- factor(courtclust$side)
+
+# 3 Clusters
+clustercut<- cutree(clusters,3)
+courtclustplot$clust3<-clustercut
+table(courtclustplot$clust3, courtclustplot$direction.change)
+
+# 4 Clusters 
+clustercut<- cutree(clusters,4)
+courtclustplot$clust4<- clustercut
 
 
-clusters <- hclust(dist(courtclust[, 2:10]))
-plot(clusters)
+# 5 Clusters 
+clustercut<- cutree(clusters,5)
+courtclustplot$clust5<- clustercut
+summary(factor(courtclustplot$clust5))
+
+# 6 Clusters
+clustercut<- cutree(clusters,6)
+courtclustplot$clust6<- clustercut
+summary(factor(courtclustplot$clust6))
+
+# 7 Clusters
+clustercut<- cutree(clusters,7)
+courtclustplot$clust7<- clustercut
+summary(factor(courtclustplot$clust7))
+
+# 8 Clusters
+clustercut<- cutree(clusters,8)
+courtclustplot$clust8<- clustercut
+summary(factor(courtclustplot$clust8))
+
+# 9 Clusters
 clustercut<- cutree(clusters,9)
-courtclust$clust5<-clustercut
-ggplot(courtclust, aes(x=center.x, y=center.y, color=factor(clust5))) + geom_point() + facet_grid(~side)
+courtclustplot$clust9<- clustercut
+summary(factor(courtclustplot$clust9))
+
+# 10 Clusters
+
+clustercut<- cutree(clusters,10)
+courtclustplot$clust10<- clustercut
+summary(factor(courtclustplot$clust10))
+
+# 11 Clusters
+
+clustercut<- cutree(clusters,11)
+courtclustplot$clust11<- clustercut
+summary(factor(courtclustplot$clust11))
+
+# 12 Clusters
+
+clustercut<- cutree(clusters,12)
+courtclustplot$clust12<- clustercut
+summary(factor(courtclustplot$clust12))
+
+
+ggplot(courtclustplot, aes(x=center.x, y=center.y, color=factor(clust11))) + geom_point() + facet_grid(~side)
+```
+
+```{r}
+# Cluster Breakdown #
+
+# PDA # 
+courtclust_pca <- prcomp(courtclust[,3:11], retx=T)
+plot(courtclust_pca, type= 'l')
+courtclust_pca$rotation[,1:7]
+courtclust_pca<- cbind((courtclust_pca$x),courtclustplot)
+ggplot(courtclust_pca, aes(x=PC1, y=PC2, color=factor(clust12))) + geom_point()
+
+#What is causing the outliers? ##
+ggplot(courtclust_pca, aes(x=PC1, y=PC2, color=factor(clust4))) + geom_point()
+library(GGally)
+ggscatmat(courtclustplot, columns = c(3:5,7,10,11), color= "clust4")
+courtclustplot$clust4<- factor(courtclustplot$clust4)
+
+# Filtering for the 3rd cluster in a 4 cluster solution
+cluster4.3<- filter(courtclustplot, clust4 == "3")
+table(cluster4.3$server)
+ggplot(cluster4.3, aes(x=center.x, y=center.y, color=factor(server))) + geom_point() 
+
+cluster4.3plot<- select(cluster4.3, serveid)
+cluster4.3plot<- merge(cluster4.3plot,atp_serves, by="serveid")
+cluster4.3plot<- GeneratePoints(cluster4.3plot, server, center.x, center.y, arc3=10,plot=TRUE)
+
+library(plotly)
+plot_ly(cluster4.3plot, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
+  add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
+  layout(scene=list(aspectmode="data"))
+
+
+# Filtering for the 2rd cluster in a 4 cluster solution #
+cluster4.2<- filter(courtclustplot, clust4 == "2")
+table(cluster4.2$server)
+ggplot(cluster4.2, aes(x=center.x, y=center.y, color=factor(server))) + geom_point() 
+
+cluster4.2plot<- select(cluster4.2, serveid)
+cluster4.2plot<- merge(cluster4.2plot,atp_serves, by="serveid")
+cluster4.2plot<- GeneratePoints(cluster4.2plot, server, center.x, center.y, arc3=10,plot=TRUE)
+
+library(plotly)
+plot_ly(cluster4.2plot, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
+  add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
+  layout(scene=list(aspectmode="data"))
+```
+
+For given serves working out comparable points is important. For simplicity on each polynomial we have decided to run with the variables given and add variables to account for spin and bounce height. 
+Noticable outliers in the PCA were analysed deeper to find outliers effecting the clustering. To find out more about these serves, they were seperated and analysed. When plotted in 3D, it is evident that the 2nd cluster in this 4 cluster solution are not serves, hence why speed and bounce was seen seperating the serves in the scatmat output. The 3rd cluster was notably a different type of serve that the spin variable, angle direction, and height of the bounce was having a large effect. When observing these serves they are all kick serves that are to the Ad court side. Interestingly, these are all viable serves and the majority coming from Dominic Thiem (7 out of 17).
+
+
+
+## Profiling a 'n' Cluster Solution ### 
+
+Variables for profiling
+  - Average Speed
+  - Variance of Speed
+  - Spin
+  - Average Arc
+  - Side
+  - Location (Wide, Body, T)
+  - Servers 
+  
+  
+```{r}
+# Cluster Profiling - 12 Cluster Solution #
+atp_serves12<- merge(atp_serves,courtclustplot[,c("serveid","clust12")], by="serveid")
+
+# Players in Each # 
+table(atp_serves12$server, atp_serves12$clust12)
+
+# Cluster 8 ~ The Isner & Raonic Power Serve #
+fast<- filter(atp_serves12, clust12=="8")
+fast<- GeneratePoints(Rao_Isn, server, serve_classification, speed, arc3=10,plot=TRUE)
+
+plot_ly(fast, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
+  add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
+  layout(scene=list(aspectmode="data"))
+
+ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color= 'Black', size = 0.5) +
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid, color=speed), data=fast) 
+
+# Cluster 8 doesnt look visually different until you compare speeds
+
+qplot(factor(clust12), speed, data=atp_serves12, geom="boxplot", color= factor(clust12))
+table(atp_serves12$clust12, atp_serves12$serve_classification)
+qplot(factor(clust12), height_off_bounce, data=atp_serves12, geom="boxplot", color= factor(clust12))
+
+# Height of the cluster 8 power serve starting position is a clear factor for the talls who can deliver these serves
+qplot(factor(clust12), start.z, data=atp_serves12, geom="boxplot", color= factor(clust12))
+
+# Ball locations
+ggplot(atp_serves12, aes(x=center.x, y=center.y, color= factor(clust12))) + geom_point() + facet_grid(~side)
 
 ```
 
-For given serves working out comparable points is important. For simplicity on each polynomial we have decided to work out the y and z value at both service boxes (x= -6.4, +6.4) and the net(x=0)
+
+```{r}
+## Comparing Raonic and Federer's serves ##
+library(MASS)
+Rao<- filter(atp_serves12, server=="RAONIC")
+Fed<- filter(atp_serves12, server=="FEDERER")
+Rao.clust<- table(Rao$clust12)
+Rao.clust.relfreq <- Rao.clust / nrow(Rao)
+barplot(Rao.clust.relfreq, ylim=c(0,0.4), main= "Raonic Frequency 1st Serves by cluster", col = "Light Blue")
+Fed.clust<- table(Fed$clust12)
+Fed.clust.relfreq <- Fed.clust / nrow(Fed) 
+barplot(Fed.clust.relfreq, ylim=c(0,.6), main = " Federer Frequency 1st Serves by cluster", col = "Light Green")
+
+```
+
 
 
 ```{r}
@@ -309,26 +496,63 @@ hist(atp_serves$height_off_bounce)
 
 # Direction Change #
 # Plotting the the serves with changes in direction #
+summary(atp_serves$direction.change)
+summary(atp_serves$angle.change)
+hist(atp_serves$angle.change)
 changedirection<- atp_serves %>% filter(direction.change == "TRUE")
+table(changedirection$serve_classification, factor(changedirection$server))
+
+
 sample <- GeneratePoints(changedirection, server, side, server.x, serve_classification, arc3=10,plot=TRUE)
 
 ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color = 'black', size = 0.5) +
-  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
-  geom_line(aes(x=x,y=y, group=serveid), data=sample)
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') + geom_line(aes(x=x,y=y, group=serveid, color=server), data=sample)
 
 ggplot() + geom_segment(aes(x=-11.89, xend=11.89, y=0, yend=0), size=0.5) + 
   geom_segment(aes(x=0,xend=0,y=0,yend=1.07), color='darkgrey') + 
   geom_line(aes(x=x, y=z, group=serveid, colour=time), data=sample)
-
-
-
+## 3D Plot ##
 library(plotly)
 plot_ly(sample, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>%
   add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>%
   layout(scene=list(aspectmode="data"))
-summary(atp_serves$direction.change)
+
+## Exploring serves with little or positive direction change ##
+posdirectionchange<- atp_serves %>% filter(direction.change == "FALSE")
+dcrandsample<- posdirectionchange[sample(nrow(posdirectionchange), 60), ]
+
+sample2 <- GeneratePoints(dcrandsample, server, side, server.x, angle.change, serve_classification, arc3=10,plot=TRUE)
+
+ggplot() + geom_path(data = courtTrace, aes(x = x, y = y), color = 'black', size = 0.5) +
+  geom_segment(aes(x= 0, xend= 0, y= -6.5, yend= 6.5), size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid, color=angle.change), data=sample2)
+
+library(plotly)
+plot_ly(sample2, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>% add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>% layout(scene=list(aspectmode="data"))
 
 
+```
+
+*Outlier's Identification*
+Unusual serve starting positions
+Possible Flip
+  Serve ID: 2_04_01_1_172646.trj, 2_04_01_1_172646.trj, 
+
+```{r}
+# Thomas Berdych Serve with a starting point 40cm+ higher than the second highest contact point.
+tail(sort(atp_serves$start.z),5)
+summary(atp_serves$start.x)
+## Wrong starting Position ##
+outlier<- GeneratePoints(atp_serves[c(481,1033),], server, side, server.x, angle.change, serve_classification, arc3=10,plot=TRUE)
+plot_ly(outlier, x=x, y=y, z=z, group=serveid, type="scatter3d", mode="lines") %>% add_trace(x=x, y=y, z=z, data=courtTrace, type="scatter3d", mode="lines") %>% layout(scene=list(aspectmode="data"))
+
+## NOT SERVES ###
+head(sort(atp_serves$start.z))
+
+## Identified through cluster analysis above (see cluster 2 in a four cluster solution), not actually serves, thought it was speed upon inspections speed is a consequence as they are ground shots after seeing starting height.
+
+# Faults #
+faults_serve
 
 
 ```
