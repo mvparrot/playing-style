@@ -1,0 +1,44 @@
+---
+title: "Classifying Playing Stlyes of Elite Tennis Players"
+author: "Braden Churcher"
+date: "10 July 2016"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction
+
+What is distinctive about the way Novak Djokovic or Roger Federer serves? What makes serves similar and what makes them different?
+
+These questions refer to the 'playing style' of each player. We focus on the tennis serve due to it's importance in a tennis game as the first serve alone allows top male tennis players to win more than 80% of these points in a game.
+
+
+
+(Johnson & McHugh, 2006)
+
+## Overview of Hawkeye Data Set
+
+The data set contains a sample of 2000 serves from the 2015 Australian Open Tournament.
+
+- The serves are given by 2 Arc's, given by a function for the X,Y,Z position of the ball across time.
+Arc 1: A Polynomial from the impact of the serve to when hits the ground. 
+Arc 3: A Polynomial from where it hit the ground to where the ball either meets the opponents racket,           or end point if an ace. 
+
+- Other data is also provided for each serve, ranging from server and receiver characterstics, speed, starting position, net clearance to the point characteristics or situation in the game when a serve is played. 
+
+
+## What factors help distinguish Tennis Serves 
+
+```{r cars, echo = TRUE}
+summary(cars)
+```
+
+## Slide with Plot
+
+```{r pressure}
+plot(pressure)
+```
+
