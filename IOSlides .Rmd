@@ -1,0 +1,292 @@
+---
+title: "PlayingStylesServes"
+output: ioslides_presentation
+---
+## Introduction
+What is distinctive about the way Rafael Nadal plays tennis? Is Novak Djokovic's playing style more like Roger Federer's or Andy Murray's? These questions all center on the idea of "playing style". While tennis fans and commentators have a general intuition of different playing styles even among the best players in the world, there aren't good ways to quantify these styles. The aim of this project is to begin to understand playing styles by examining player similarity in shot taking.
+
+
+## Data
+Using shot trajectory data gathered by Hawk-eye systems at the 2012-2016 Australian Open to describe shot taking characteristics amongst the top 10 male ranked players during this period. Analysis should describe the pros and cons of the similarity in their playing styles.
+
+
+## Variables that could Influence Serving Styles
+From Data there appears to be several variables that could influence the way players serve including:
+Speed, net.clearance, height_off_bounce, angle.change, serve.x (being first or second serve), center,x, center.y (location of serve ballmark at landing location), start.x, start,y and start.z (location of the ball at serve impact)
+
+
+## General Observations
+These general plots give an indication that many of these variables play a role in how and where the player serves. 
+```{r, echo=FALSE, error=FALSE}
+ggplot(atp_serves, aes(x=speed, y= height_off_bounce)) + geom_point() + facet_grid(~serve.x)
+```
+The graph appears to indicate that generally speed for the first serve is faster than the second serve.  Also, the lower the height of the bounce the faster the ball.  
+*note* Plot with Facet for 1st/2nd serve. 
+ggplot() + geom_segment(aes(x=-11.89, xend=11.89, y=0, yend=0), size=0.5) + 
+  geom_segment(aes(x=0,xend=0,y=0,yend=1.07), color='darkgrey') + 
+  geom_line(aes(x=x, y=z, group=serveid, colour=speed), data=sample
+  
+  
+## Angle Change
+```{r, echo=FALSE, error=FALSE}
+ggplot(atp_serves, aes(x= height_off_bounce, y=angle.change))+ geom_point()+facet_grid(~direction.change)
+ggplot(atp_serves, aes(x=speed, y=angle.change)) + geom_point()
+```
+There is generally no angle change after the ball is hit.  From the data, only 14 serves changed direction. Murray contributed 6 of the 14 serves that changed direction. This mainly arose during his game against Raonic.
+Additionally angle change appears to be prominent where the speed of the ball is low.  At high speed tends to be no angle change. 
+*Note* Add plot of serves that "change direction"
+
+
+## Center.x and Center.y
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+ggplot(atp_serves, aes(x= center.x, y=center.y)) + geom_point() + facet_grid(~side)
+fed <- atp_serves %>% filter(server == "FEDERER")
+ggplot(fed, aes(x=center.x, y=center.y)) + geom_point() + facet_grid(~side)
+```
+The serves are evenly spread out around the center. 
+
+
+## Serve Classification
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve_classification == "0"))) + geom_point()
+ggplot(atp_serves, aes(x=center.x, y=center.y, color=factor(serve_classification == "3"))) + geom_point() + facet_wrap(~side)
+ggplot(data=atp_serves, aes(x=start.y, y=start.z, color=factor(serve_classification == "0"))) + geom_point()
+ggplot(data=servers, aes(x=center.x, y=center.y)) +
+  geom_point(data=servers, 
+             aes(colour=factor(serve_classification)), alpha=0.5, size=2) + 
+  facet_grid(server~side) + theme(legend.position="none")
+
+```
+There are very few aces based on the data (classifcation = "0").  Most are serves are classified as "1" being serve returned in play. There appears to be a similar number of serves not returned (="2") in play and faults (="3").  Aces and faults are genetally aimed at the boundaries of the court.
+
+
+## Net Clearance 
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(atp_serves, aes(x=center.x, y=net.clearance, color=factor(serve.x))) + geom_point() 
+ggplot(atp_serves, aes(x=center.y, y=net.clearance, color=factor(serve.x))) + geom_point() 
+```
+The first serve is longer and usually higher over the net.  This may be due to the tendency of players to hit safer serves on the second serve and take more risks on the first serve. 
+
+
+## Density Plots based on General Playing styles 
+In addition to the variables above playing a role in serving styles, the opponent can similarly influence different methods of play.
+
+General Density Plots 
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=start.x,y=start.y), data=atp_serves)
+```
+This graph shows the location of the ball at serve impact.
+
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x ,y=center.y), data=atp_serves)
+```
+The majority of balls are hit towards the blue area, with most being down the T.
+
+
+## Density Plots based on individual Players (Bautista Agut) ##
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=server), data=filter(atp_serves, matchid=="AO20163rd_Bautista Agut_Cilic"))
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Baut", atp_serves$matchid) & atp_serves$receiver!="BAUTISTA AGUT",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Baut", atp_serves$matchid) & atp_serves$receiver!="BAUTISTA AGUT",]) +facet_grid(fast~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Baut", atp_serves$matchid) & atp_serves$receiver!="BAUTISTA AGUT",]) +facet_grid(serve.x~matchid)
+
+
+mutate(atp_serves, fast=speed>50)
+atp_serves=mutate(atp_serves, fast=speed>50)
+median(atp_serves$speed)
+boxplot(atp_serves$speed)
+```
+These graphs depict the position Bautista-Agut serves to different opponents.  Bautista's playing style varies according to his opponent. When playing against Berdych, Bautista appears to have a larger playing range compared to Cilic.  Furthermore, the serving style against Berdych has little change however, when playing against Cilic his style changes depending on different variable inputs.
+
+
+## Murray 
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Murr", atp_serves$matchid) & atp_serves$receiver!="MURRAY ",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Murr", atp_serves$matchid) & atp_serves$receiver!="MURRAY",]) +facet_grid(serve.x~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Murr", atp_serves$matchid) & atp_serves$receiver!="MURRAY",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Murr", atp_serves$matchid) & atp_serves$receiver!="MURRAY",]) +facet_grid(direction.change~matchid)
+```
+Murray's serving style appears to be more consistent in range.  However, his serving range is larger with Tomic and serves to specific locations against Ferrer on the second serve. His aces against Tomic and Ferrer are of a wide range but with Sousa he appears to be getting aces when gitting to the boundary on the T. The majority of direction changes were accumulated by Murray's hits.  What is noticeable is that the direction of the ball only changes when he is playing against Raonic.  
+
+
+## Raonic 
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Rao", atp_serves$matchid) & atp_serves$receiver!="RAONIC ",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Rao", atp_serves$matchid) & atp_serves$receiver!="RAONIC",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Rao", atp_serves$matchid) & atp_serves$receiver!="RAONIC",]) +facet_grid(serve.x~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Rao", atp_serves$matchid) & atp_serves$receiver!="RAONIC",]) +facet_grid(fast~matchid~serve.x)
+
+mutate(atp_serves, fast=speed>60)
+atp_serves=mutate(atp_serves, fast=speed>60)
+median(atp_serves$speed)
+boxplot(atp_serves$speed)
+```
+Raonic hits more aces.  He pinpoints different areas of the court against different players.  For example against Wawrinka he hits to the corners of the boundary to score aces.  But against Murray and Monfils he serves to two particular spots.  His first serve is more risky with a larger range out of the court.  His second serve appears to be more conservative. The median speed the ball is hit is 49.87955.  Raonic hits faster serves of over 60.
+
+
+## Ferrer
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Ferr", atp_serves$matchid) & atp_serves$receiver!="FERRER ",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Ferr", atp_serves$matchid) & atp_serves$receiver!="FERRER",]) +facet_grid(serve_classification~matchid)
+
+ggplot(aes(x=x, y=y), data=court_trace) + geom_path() +geom_density2d(aes(x=center.x,y=center.y, colour=receiver), data=
+atp_serves[1:2000%in%grep("Ferr", atp_serves$matchid) & atp_serves$receiver!="FERRER",]) +facet_grid(serve.x~matchid)
+```
+Ferrer does not hit any aces.  His faults are always towards the back boundary of the T.  The serve is not returned ("2") when he pinpoints the ride side of the court.  His first and second serve positions only vary slightly. 
+
+
+## Hextri Plots (Comparison of players)
+## Murray v Djokovic 
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+
+all_sub1 <- all %>% filter(scorer == 1 & side == "Ad" & 
+                            (server %in% c("MURRAY", "DJOKOVIC")& serve.x == 2))
+all_sub1$server <- as.character(all_sub1$server)    
+all_hex1 <- hextri(all_sub1$x, all_sub1$y, all_sub1$server,
+                  col=c("#1f9e77","#d95ff9"), nbins=30)
+
+col.group <- unique(all_hex1$col)
+all_hex.dff <- data.frame(x=all_hex1$x[!is.na(all_hex1$x)], y=all_hex1$y[!is.na(all_hex1$x)], 
+    tri=rep(1:length(all_hex1$col), 
+            rep(3, length(all_hex1$col))), 
+        col=rep(all_hex1$col, 
+            rep(3, length(all_hex1$col))))
+ggplot(all_sub1) +
+  geom_path(data = court_trace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = court_trace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.dff, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() + 
+  theme_court + coord_equal()
+```
+Hextri plots are hexagonally-binned scatterplots with coloured subtriangles to indicate the number of observations in each class.  This plot was mapped from the match of Murray and Djokovic. The green color indicates Murray's serves.  He tends to serve towards the inside where as Djokovic serves more out wide.  The hexagons with both colours are where both players serve. This plot is filtered to show only the second serves. 
+
+
+## Federer v Berdych 
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+all_sub2 <- all %>% filter(scorer == 1 & side == "Ad" & 
+                            (server %in% c("FEDERER","BERDYCH")&(serve.x== 1)&(serve_classification== 0)))
+all_sub2$server <- as.character(all_sub2$server)    
+all_hex2 <- hextri(all_sub2$x, all_sub2$y, all_sub2$server,
+                  col=c("#5b1e77","#d95f05"), nbins=30)
+
+col.group2 <- unique(all_hex2$col)
+all_hex.dfff <- data.frame(x=all_hex2$x[!is.na(all_hex2$x)], y=all_hex2$y[!is.na(all_hex2$x)], 
+    tri=rep(1:length(all_hex2$col), 
+            rep(3, length(all_hex2$col))), 
+        col=rep(all_hex2$col, 
+            rep(3, length(all_hex2$col))))
+ggplot(all_sub2) +
+  geom_path(data = court_trace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = court_trace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.dfff, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() + 
+  theme_court + coord_equal()
+```
+Federer is the purple and Berdych is the orange. It is filtered to first serves and aces. Without the filter of aces, the plot appears to indicate that there is not really much of a different in how the players serve. 
+
+
+## Murray v Raonic 
+```{r, echo=FALSE, error=FALSE, warning= FALSE}
+
+all_sub <- all %>% filter(scorer == 1 & side == "Ad" & 
+                            (server %in% c("MURRAY", "RAONIC") & serve_classification==0))
+all_sub$server <- as.character(all_sub$server)    
+all_hex <- hextri(all_sub$x, all_sub$y, all_sub$server,
+                  col=c("#1b4e77","#d95f02"), nbins=30)
+
+col.group <- unique(all_hex$col)
+all_hex.df <- data.frame(x=all_hex$x[!is.na(all_hex$x)], y=all_hex$y[!is.na(all_hex$x)], 
+    tri=rep(1:length(all_hex$col), 
+            rep(3, length(all_hex$col))), 
+        col=rep(all_hex$col, 
+            rep(3, length(all_hex$col))))
+ggplot(all_sub) +
+  geom_path(data = court_trace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = court_trace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.df, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() + 
+  theme_court + coord_equal() 
+```
+Murray is represented by the blue and Raonic by the red.  They both tend to serve from all areas on the court as opposed to selecting a few areas. The direction of the ball only changes when Murray serves from the center.  
+
+## Wawrinka v Raonic 
+```{r, echo=FALSE, error=FALSE, warning=FALSE}
+all_sub3 <- all %>% filter(scorer == 1 & side == "Ad" & 
+                            (server %in% c("WAWRINKA","RAONIC")&(serve.x== 1)&(serve_classification== 0)))
+all_sub3$server <- as.character(all_sub3$server)    
+all_hex3 <- hextri(all_sub3$x, all_sub3$y, all_sub3$server,
+                  col=c("#1c1f77","#b13a35"), nbins=30)
+
+col.group3 <- unique(all_hex3$col)
+all_hex.dffff <- data.frame(x=all_hex3$x[!is.na(all_hex3$x)], y=all_hex3$y[!is.na(all_hex3$x)], 
+    tri=rep(1:length(all_hex3$col), 
+            rep(3, length(all_hex3$col))), 
+        col=rep(all_hex3$col, 
+            rep(3, length(all_hex3$col))))
+ggplot(all_sub3) +
+  geom_path(data = court_trace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = court_trace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.dffff, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() + 
+  theme_court + coord_equal()
+```
+Wawrinka is represented on the blue and Raonic by the red. Wawrinka tends to hit aces when hitting at the left hand corner of the court.  They both also hit aces when serving down the middle of the court and pinpointing the boundary of the T. 
+
+
+## Nishikori v Tsonga 
+```{r, echo=FALSE, error=FALSE, warning=FALSE }
+all_sub4 <- all %>% filter(scorer == 1 & side == "Ad" & 
+                            (server %in% c("NISHIKORI","TSONGA")&(serve.x== 1)&(serve_classification== 0)))
+all_sub4$server <- as.character(all_sub4$server)    
+all_hex4 <- hextri(all_sub4$x, all_sub4$y, all_sub4$server,
+                  col=c("#cc00ff","#33ffff"), nbins=30)
+
+col.group4 <- unique(all_hex4$col)
+all_hex.dfffff <- data.frame(x=all_hex4$x[!is.na(all_hex4$x)], y=all_hex4$y[!is.na(all_hex4$x)], 
+    tri=rep(1:length(all_hex4$col), 
+            rep(3, length(all_hex4$col))), 
+        col=rep(all_hex4$col, 
+            rep(3, length(all_hex4$col))))
+ggplot(all_sub4) +
+  geom_path(data = court_trace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = court_trace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.dfffff, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() + 
+  theme_court + coord_equal()
+
+par(mfrow=c(2,1))
+```
+Pink is Nishikori and blue is Tsonga.  To get aces Nishikori only serves from one position whereas Tsonga serves from two.  (That is either the corner of the court or down the center.)
