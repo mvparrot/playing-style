@@ -1,0 +1,622 @@
+---
+title: "Classifying Playing Styles of Elite Tennis Players"
+author: "Braden Churcher & Madeline Jom"
+date: "10 July 2016"
+output: ioslides_presentation
+css: default.css
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning=FALSE, 
+                      message=FALSE, 
+                      error=FALSE,
+                      cache=FALSE)
+```
+
+```{r}
+load("atp_serves.RData")
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(fpc) 
+library(hextri)
+library(gridExtra)
+library(GGally)
+library(ggdendro)
+library(plotly)
+```
+
+```{r}
+### Mitch's code for Court Position of Ball ### 
+## Legacy generate points function ## 
+traj_coords <- function(start, dir, flip, c0, c1, c2, c3, tm=0) { 
+  tm <- tm + start 
+  if (dir != "z") { 
+    c0 <- flip * c0 
+    c1 <- flip * c1 
+    c2 <- flip * c2 
+    c3 <- flip * c3 
+  } 
+  pos <- c0 + c1*tm + c2*tm^2 + c3*tm^3 
+  return(pos) 
+} 
+ 
+GeneratePoints <- function(data, ..., arc1=10, arc3=0, plot=FALSE){ 
+  require(tidyr) 
+  require(dplyr) 
+  require(purrr) 
+   
+  #arc2*(start.3 - (start.1+duration.arc1)) 
+  data <- data %>% mutate(duration = arc1*duration.arc1 + arc3*duration.arc3, flip=sign(raw.x0.1)) 
+   
+  dots <- c("serveid", sapply(substitute(list(...))[-1], deparse)) 
+  extravars <- match(dots[dots%in%colnames(data)], colnames(data)) 
+   
+  out <- data.frame() 
+   
+  if(arc1!=0){ 
+    arc1p <- data %>% select(extravars, start.1, duration.arc1, flip, raw.x0.1:raw.z3.1) %>% 
+      gather(coef, value, -(1:length(extravars)), -start.1, -duration.arc1, -flip) %>% 
+      separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>% 
+      select(-junk1, -junk2) %>% 
+      mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>% 
+      spread(coef, value) %>% 
+      rename("start" = `start.1`, "duration"=`duration.arc1`, "c0"=`0`, "c1"=`1`, "c2"=`2`, "c3"=`3`) 
+      arc1points <- seq(0,1,length.out=arc1) %>% 
+        map_df(function(x) mutate(rowwise(arc1p), time=start+duration*x, pos=traj_coords(start, dir, flip, c0, c1, c2, c3, tm=duration*x))) 
+      out <- rbind(out, cbind(arc=1, arc1points)) 
+  } 
+   
+  if(arc3!=0){ 
+    arc3p <- data %>% select(extravars, start.3, duration.arc3, flip, raw.x0.3:raw.z3.3) %>% 
+      gather(coef, value, -(1:length(extravars)), -start.3, -duration.arc3, -flip) %>% 
+      separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>% 
+      select(-junk1, -junk2) %>% 
+      mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>% 
+      spread(coef, value) %>% 
+      rename("start" = `start.3`, "duration"=`duration.arc3`, "c0"=`0`, "c1"=`1`, "c2"=`2`, "c3"=`3`) 
+    arc3points <- seq(0,1, length.out=arc3) %>% 
+      map_df(function(x) mutate(rowwise(arc3p), time=start+duration*x, pos=traj_coords(start, dir, flip, c0, c1, c2, c3, tm=duration*x))) 
+    out <- rbind(out, cbind(arc=3, arc3points)) 
+  } 
+   
+  if(plot){ 
+    extravars <- match(dots[dots%in%colnames(out)], colnames(out)) 
+    out <- out %>% select(arc, extravars, flip, dir, time, pos) %>% 
+      spread(dir, pos) 
+  } 
+   
+  return(out) 
+} 
+
+# Court background theme
+theme_court <- theme_bw()
+theme_court$line <- element_blank()
+theme_court$axis.text <- element_blank()
+theme_court$axis.title <- element_blank()
+
+courtTrace <- data.frame(x = c(-11.89, -11.89, 0, 0, 0, 0, 0, 0, 11.89, 11.89, -11.89, -11.89, 11.89, 11.89, -11.89, -6.4, -6.4, 6.4, 6.4, 6.4, -6.4),
+                         y = c(5.49, -5.49, -5.49, -6.5, -6.5, 6.5, 6.5, -5.49, -5.49, 5.49, 5.49, 4.115, 4.115, -4.115, -4.115, -4.115, 4.115, 4.115, -4.115, 0, 0),
+                         z = c(0, 0, 0, 0, 1.09, 1.09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
+generate_traj_points <- function(data, npts = 10, both_arcs = TRUE, ...) {
+  
+  # Handle arguments for extra variables
+  dots <- c("serveid", sapply(substitute(list(...))[-1], deparse))
+  extravars <- match(dots[dots%in%colnames(data)], colnames(data))
+
+  # Longify data
+  data_long <- data %>%
+  select(serveid, start.1, duration.arc1, flip, raw.x0.1:raw.z3.1) %>%
+  gather(coef, value, -serveid, -start.1, -duration.arc1, -flip) %>%
+  #gather(coef, value, raw.x0.1:raw.z3.1) %>%
+  separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>%
+  select(-junk1, -junk2) %>%
+  mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>%
+  spread(coef, value) %>%
+  rename("start" = `start.1`, "duration"=`duration.arc1`, "c0"=`0`,
+             "c1"=`1`, "c2"=`2`, "c3"=`3`) 
+  
+  # Compute points for arc 1
+  arcpoints <- seq(0, 1, length.out = npts) %>%
+    map_df(function(x) mutate(rowwise(data_long), time=start + duration * x,
+      pos=traj_coords(start, dir, flip, c0, c1, c2, c3,
+      tm = duration * x))) %>%
+    select(serveid, pos, time, flip, dir) %>%
+    arrange(serveid, pos, time) %>% 
+    spread(dir, pos)
+  
+  # Now second arc
+  if (both_arcs) {
+    data_long <- data %>% select(extravars, start.3, duration.arc3, flip,
+                                       raw.x0.3:raw.z3.3) %>%
+      gather(coef, value, -(1:length(extravars)), -start.3, -duration.arc3, -flip) %>%
+      separate(coef, c("junk1", "coef", "junk2"), sep="\\.") %>%
+      select(-junk1, -junk2) %>%
+      mutate(dir=substr(coef, 1, 1), coef=substr(coef, 2, 2)) %>%
+      spread(coef, value) %>%
+      rename("start" = `start.3`, "duration"=`duration.arc3`, "c0"=`0`, "c1"=`1`,
+             "c2"=`2`, "c3"=`3`)
+    
+    arc3points <- seq(0, 1, length.out=npts) %>%
+      map_df(function(x) mutate(rowwise(data_long), time = start + duration * x,
+                                pos = traj_coords(start, dir, flip, c0, c1, c2, c3,
+                                                tm=duration * x))) %>%
+      select(serveid, pos, time, flip, dir) %>%
+      arrange(serveid, pos, time) %>% 
+    spread(dir, pos)
+    arcpoints <- rbind(arcpoints, arc3points)
+  }
+  return(arcpoints)
+}
+```
+
+```{r}
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+cluster_func <- function(data_hc, serveid, nclust=8) { 
+  cl <- cutree(data_hc, nclust) 
+  #clustercut <- as.numeric(as.character(factor(clustercut))) 
+  out <- data.frame(serveid, cl) 
+  #colnames(out)<- c("serveid", paste0("cluster",nclust)) 
+  return(out) 
+} 
+
+## Function for Dendogram and Cluster Stats ## 
+cluster_stats <- function(data, data_hc) {  
+  cl.stats <- NULL 
+  
+  for (k in 2:20) { 
+    cl <- cutree(data_hc, k) 
+    x <- cluster.stats(dist, cl) 
+    cl.stats <- rbind(cl.stats, c(k, x$within.cluster.ss, x$wb.ratio, x$ch, 
+                                  x$pearsongamma, x$dunn, x$dunn2)) 
+  } 
+  colnames(cl.stats) <- c("cl", "within.cluster.ss", "wb.ratio", "ch",
+                          "pearsongamma", "dunn", "dunn2") 
+  cl.stats <- data.frame(cl.stats) 
+  cl.stats.m <- gather(cl.stats, key=stat, value=value, -cl) 
+  return(cl.stats.m)
+}
+```
+
+## Introduction
+
+What is distinctive about the way Novak Djokovic or Roger Federer serves? What makes serves similar and what makes them different?
+
+These questions refer to the 'playing style' of each player. First serves alone contribute to top male tennis players winning more than 80% of the points in a game.
+
+(Johnson & McHugh, 2006)
+
+
+## Serving Styles ##
+
+A sneak peak...
+
+```{r}
+atp_serves_clean <- atp_serves %>% 
+  filter(start.x > 8, start.z > 2, serve_classification < 3)
+mydata <- atp_serves_clean %>% 
+ select(serveid, server, center.x, center.y, speed, start.x,
+            start.y, start.z, net.clearance, height_off_bounce,
+            angle.change, side, direction.change) %>% 
+  mutate_each(funs(scale_this), 3:11)
+# Really need to do PCA first! A lot of correlation between variables.
+mydata_pca <- prcomp(mydata[, 3:11], scale=T, retx=T)
+mydata_pc <- data.frame(mydata_pca$x[,1:4]) %>% mutate_each(funs(scale_this))
+mydata$side <- factor(mydata$side) 
+#screeplot(mydata_pca) - Does the variation in the screeplot explain the correlation as well?
+
+# Function for Hierarchical Clustering, with set Cluster Variables # 
+# Returns a data frame with the serve ID and the cluster id  
+#dist <- dist(mydata[,3:11]) 
+dist <- dist(mydata_pc) 
+mydata_hc <- hclust(dist, method = "ward.D2") 
+#ggdendrogram(mydata_hc, labels=FALSE)
+# mydata_hc_s <- hclust(dist, method = "single") 
+#ggdendrogram(mydata_hc_s, labels=FALSE)
+
+# 1st Serve 
+# Excluding Faults #
+#dat1 <- atp_serves %>% filter(serve.x=="1") %>% filter(serve_classification < 3)
+clust1.8 <- cluster_func(mydata_hc, mydata$serveid, 5)
+atp_serves1.8 <- merge(atp_serves, clust1.8, by="serveid")
+atp_serves1.8$cl <- factor(atp_serves1.8$cl)
+
+# Top Servers Styles 
+# Only keep the players who played more than 2 matches
+keep <- atp_serves %>% select(server, matchid) %>% 
+  distinct() %>% count(server, sort=TRUE) %>% filter(n>2) 
+atp_serves_sub1 <- atp_serves %>% 
+  filter(server %in% keep$server) %>% 
+  merge(clust1.8, by = "serveid")
+atp_serves_sub1$cl <- factor(atp_serves_sub1$cl)
+#labels = c("Fast Flat Serve", "Medium Ad Court Top Spin", "Short Wide Deuce Court Kicker", "Deep Flat Serve Deuce Court", "Deep Flat Serve Ad Court", "Deep Slow Topspin Ad Court", "Long Wide Deuce Court Kicker", "Power Flat Serve", "Non Serves", "Slow Wide Kick Serve Ad Court", "Slow Wide Kick Serve Ad Court", "Outlier"))
+
+serve1_no_faults <- atp_serves_sub1 %>% 
+  filter(serve_classification < 3, serve.x == 1) %>%
+  group_by(server, cl) %>% summarise(n = n()) %>%
+  group_by(server) %>%
+  mutate(freq = n/sum(n))
+serve2_no_faults <- atp_serves_sub1 %>% 
+  filter(serve_classification < 3, serve.x == 2) %>%
+  group_by(server, cl) %>% summarise(n = n()) %>%
+  group_by(server) %>%
+  mutate(freq = n/sum(n))
+serve_no_faults <- merge(serve1_no_faults, serve2_no_faults, by=c("server", "cl"), all=TRUE)
+colnames(serve_no_faults)[3:6] <- c("s1_n", "serve1", "s2_n", "serve2")
+serve_no_faults_m <- serve_no_faults %>% 
+  gather(serve, freq, serve1, serve2)
+ggplot(serve_no_faults_m, aes(x = server, y=freq, fill = cl)) +
+  geom_bar(stat = "identity") + scale_fill_brewer(palette = "Dark2") +
+  facet_wrap(~serve, ncol=1) + 
+  guides(fill=FALSE) + xlab("") + ylab("")
+```
+
+## Data
+
+2000 serves from the 2016 Australian Open Tournament.
+
+The serves described by 2 arcs, a function for the X, Y, Z position of the ball across time. 
+
+In addition to server, receiver, speed, starting position, net clearance, side, winner or fault, height of bounce, angle change, ... 
+
+## Tennis Serves ##
+
+The first questions we naturally asked is what are the types of serves a tennis player can do? Coaching literature defines a few types of serves:
+
+- Flat serve
+- Top spin serve
+- Slice serve
+- Kick serve
+
+To change the serve type a player can control the ball toss and the way the racquet makes impact with the ball. 
+
+We would like to know if the serve data from the Australian Open reflects these types of serves, and how players utilise different serves. 
+
+## Characteristics using data
+
+We don't have a "serve type", need to guess it from the data based on the arc descriptions. 
+
+These variables are used:
+
+- Start position: x, y, z
+- Speed
+- Height off the bounce
+- Net clearance
+- Location of the bounce in the service box: x, y
+- Angle change
+
+The variables were all scaled to mean 0 and variance 1, so that each contribute to the clustering equally. Data also transformed into principal components, first four used. More on this later. 
+
+## Data cleaning
+
+```{r fig.width=4, fig.height=4, fig.align='center'}
+atp_serves <- atp_serves %>% mutate(odd1 = ifelse(start.x < 8, "odd", "ok"),
+                                    odd2 = ifelse(start.z < 2, "odd", "ok"))
+p <- ggplot(atp_serves, aes(x=start.x, y=start.z, label=server,
+                            colour=interaction(odd1, odd2))) + 
+  geom_point() + theme(aspect.ratio=1, legend.position="none")
+p
+#ggplotly(p)
+```
+
+One serve start.x position didn't get flipped properly, a handful of serve starts are actually baseline return positions.  
+
+## Cluster algorithm
+
+- Euclidean distance between serves is used
+- Ward's linkage
+
+```{r fig.width=6, fig.align='center'}
+ggdendrogram(mydata_hc, labels=FALSE)
+```
+
+## How many clusters?
+
+```{r fig.width=6, fig.align='center'}
+table(cutree(mydata_hc, 5))
+ggdendrogram(mydata_hc, labels=FALSE) + 
+  geom_hline(yintercept=45, colour="red") +
+  geom_hline(yintercept=35, colour="orange") +
+  geom_hline(yintercept=27, colour="lightblue") 
+```
+
+## Cluster statistics
+
+```{r fig.width=7, fig.height=5, fig.align='center'}
+cl.stats.m <- cluster_stats(mydata_pc, mydata_hc)
+ggplot(cl.stats.m, aes(x=cl, y=value)) + geom_line() + 
+  xlab("# clusters") + ylab("") + 
+   facet_wrap(~stat, ncol=3, scales = "free_y") + 
+  theme_bw() 
+```
+
+## Learn
+
+- Dendrogram would suggest 2, 4, 5, ... clusters
+- Cluster stats provide somewhat corroborating: 4, 6, 12
+- Finer clustering might give more interesting breakdown of serving styles
+
+## Investigating clusters: 5
+
+```{r}
+# Output dendrogram to look at in ggobi
+atp_serves_clust <- atp_serves_clean %>% 
+  select(serveid, server, serve.x, center.x, center.y, speed, start.x,
+            start.y, start.z, net.clearance, height_off_bounce,
+            angle.change, side, direction.change) %>% 
+  bind_cols(mydata_pc) %>%
+  mutate(cl2 = cutree(mydata_hc, 2), cl3 = cutree(mydata_hc, 3),
+         cl4 = cutree(mydata_hc, 4), cl5 = cutree(mydata_hc, 5),
+         cl6 = cutree(mydata_hc, 6), cl6 = cutree(mydata_hc, 6),
+         cl7 = cutree(mydata_hc, 7), cl8 = cutree(mydata_hc, 8),
+         cl9 = cutree(mydata_hc, 9), cl10 = cutree(mydata_hc, 10),
+         cl11 = cutree(mydata_hc, 11), cl12 = cutree(mydata_hc, 12),
+         cl13 = cutree(mydata_hc, 13), cl14 = cutree(mydata_hc, 14),
+         cl15 = cutree(mydata_hc, 15), cl16 = cutree(mydata_hc, 16),
+         cl17 = cutree(mydata_hc, 17), cl18 = cutree(mydata_hc, 18),
+         cl19 = cutree(mydata_hc, 19), cl20 = cutree(mydata_hc, 20))
+#write_csv(atp_serves_clust, "atp_serves_clust.csv")
+```
+
+Examine a low-dimensional representation. 
+
+```{r fig.width=5, fig.height=5, fig.align='center'}
+atp_serves_clust_pc <- atp_serves_clust
+atp_serves_clust_pc$cl5 <- factor(atp_serves_clust_pc$cl5)
+ggscatmat(atp_serves_clust_pc, columns=15:18, color="cl5", alpha=0.2)
+```
+
+## More clusters: 12
+
+```{r fig.width=4.5, fig.height=4.5, fig.align='center'}
+p <- ggplot(mydata_pc, aes(x=PC1, y=PC2)) +
+  geom_point(colour="grey90")
+p +  geom_point(data=atp_serves_clust, colour="#ff7f00") +
+  facet_wrap(~cl12, ncol=4) +
+  theme_bw() + 
+  theme(legend.position="none", aspect.ratio=1)
+```
+
+Most clusters defined in PC1 and PC2, except 3 and 7.
+
+## More dimensions
+
+```{r fig.width=4.5, fig.height=4.5, fig.align='center'}
+p <- ggplot(mydata_pc, aes(x=PC3, y=PC4)) +
+  geom_point(colour="grey90")
+p +  geom_point(data=atp_serves_clust, colour="#ff7f00") +
+  facet_wrap(~cl12, ncol=4) +
+  theme_bw() + 
+  theme(legend.position="none", aspect.ratio=1)
+```
+
+Clusters 3, 7 contain unusal serves.
+
+## PC1 vs PC2: see the clusters?
+
+```{r fig.width=4.5, fig.height=4.5, fig.align='center'}
+atp_serves_clust_pc %>% 
+  filter(cl12 %in% c(1,2,4,5,6,8,9,10,11,12)) %>%
+  ggplot(aes(x=PC1, y=PC2)) +
+  geom_point(aes(colour=factor(cl12)), alpha=0.3) + theme_bw() + 
+  theme(legend.position="none", aspect.ratio=1)
+```
+
+## Relationship with original variables
+
+```{r fig.width=8, fig.height=5, fig.align='center'}
+atp_serves_clust$cl12 <- factor(atp_serves_clust$cl12)
+p1 <- ggplot(atp_serves_clust, aes(x=cl12, y=center.x)) + geom_boxplot()# +
+  #scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+p2 <- ggplot(atp_serves_clust, aes(x=cl12, y=center.y)) + geom_boxplot() #+
+ # scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+p3 <- ggplot(atp_serves_clust, aes(x=cl12, y=start.y)) + geom_boxplot() #+
+  #scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+p4 <- ggplot(atp_serves_clust, aes(x=cl12, y=speed)) + geom_boxplot() #+
+  #scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+p5 <- ggplot(atp_serves_clust, aes(x=cl12, y=height_off_bounce)) + geom_boxplot() #+
+  #scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+p6 <- ggplot(atp_serves_clust, aes(x=cl12, y=angle.change)) + geom_boxplot() #+
+  #scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+grid.arrange(p4, p5, p6, p1, p2, p3, ncol=3)
+```
+
+## Characterisation
+
+- Clusters 1, 2, 10 are fast, flat serves
+- Cluster 9 has slow, high bounce, high angle, long, deuce side serves; cluster 3 (of outliers) are similar serves, from both deuce and ad sides
+- Cluster 4, 5, 12 are similarly a bit slower, more bounce, not as much angle change, with cluster 5 tending to be hit deeper into the ad court
+- Clusters 6, 7, 8, 11 are fast, not much bounce but some with negative angle change.
+
+## First vs second serve
+
+```{r}
+atp_serves_clust$cl12 <- as.numeric(as.character(atp_serves_clust$cl12))
+serve <- atp_serves_clust %>% group_by(cl12, serve.x) %>% tally()
+serve$serve.x <- factor(serve$serve.x)
+ggplot(data=serve, aes(x=cl12, y=n, fill=serve.x)) + 
+  geom_bar(stat="identity") +
+  scale_x_continuous(breaks=1:12, labels=1:12) + xlab("")
+```
+
+## By player
+
+```{r fig.width=7, fig.height=5, fig.align='center'}
+keep <- atp_serves %>% select(server, matchid) %>% 
+  distinct() %>% count(server, sort=TRUE) %>% filter(n>2) 
+player <- atp_serves_clust %>% 
+  filter(server %in% keep$server) %>%
+  group_by(server, cl12, serve.x) %>% tally() %>%
+  group_by(serve.x, server) %>%
+  mutate(freq = n/sum(n))
+player$serve.x <- factor(player$serve.x)
+player$cl12 <- factor(player$cl12)
+ggplot(data=player, aes(x=server, y=freq, fill=cl12)) + 
+  geom_bar(stat="identity") +
+  facet_wrap(~serve.x, ncol=1) 
+```
+
+## Characteristics
+
+- Raonic tends to do serve type 10 on his first serve, and serve type 7 on his second serve
+- Serve type 9 is mainly Djokovic, Ferrer, Nishikori and Monfils on their second serve
+
+
+## What do cluster 9 serves look like?
+
+```{r fig.width=8, fig.height=5, fig.align='center'}
+atp_12 <- merge(atp_serves, atp_serves_clust[,c(1,29)], by = "serveid" )
+atp_12$cl12 <- factor(atp_12$cl12)
+atp_12_9 <- atp_12 %>% filter(cl12 =="9")
+atp_12_9$speed <- atp_12_9$speed*3.6
+atp_12_9 <- GeneratePoints(atp_12_9, speed, arc3=10, plot=TRUE)
+
+ggplot() + 
+  geom_path(data = courtTrace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = courtTrace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_line(aes(x=x,y=y, group=serveid), data=atp_12_9, alpha=0.6, colour="blue") +
+  theme_court + coord_equal()
+```
+
+## Make it interactive
+
+```{r}
+atp_12_9_4 <- atp_12 %>% filter(cl12 %in% c("4","9"))
+atp_12_9_4$speed <- atp_12_9_4$speed*3.6
+atp_12_9_4 <- GeneratePoints(atp_12_9_4, speed, arc3=10, plot=TRUE)
+atp_12_9_4 <- merge(atp_12_9_4, atp_serves_clust[,c(1,29)], by = "serveid")
+atp_12_9_4$cl12 <- factor(atp_12_9_4$cl12)
+
+plot_ly(atp_12_9_4, x = ~x, y = ~y, z = ~z, color = ~cl12) 
+```
+
+## Same ball toss - master of disguise? 
+
+```{r fig.width=8, fig.height=4, fig.align='center'}
+atp_12 <- merge(atp_serves_clean, atp_serves_clust[,c(1,29)], by = "serveid" )
+atp_12$cl12 <- factor(atp_12$cl12)
+
+keep <- atp_12 %>% select(server, matchid) %>% 
+  distinct() %>% count(server, sort=TRUE) %>% filter(n>2) 
+player <- atp_12 %>% 
+  filter(server %in% keep$server) %>%
+  mutate(cl12 = factor(cl12))
+
+p1 <- ggplot(filter(player, side == "Ad"), 
+             aes(x=start.y, y=start.z, color=cl12)) +
+  geom_point() + facet_grid(~server) + ylim(2.6, 3.2) + xlim(-1.5, 0) +
+  theme(legend.position="none") + ggtitle("Ad")
+p2 <- ggplot(filter(player, side == "Deuce"), 
+             aes(x=start.y, y=start.z, color=cl12)) + 
+  geom_point() + facet_grid(~server) + ylim(2.6,3.2) + xlim(0, 1.5) +
+  theme(legend.position="none") + ggtitle("Deuce")
+grid.arrange(p1, p2, ncol=1)
+```
+
+- Djokovic consistency, hits different serves from same spot.
+- Raonic appears to toss slightly different for different serves. 
+
+## Raonic's two toss and serve types?
+
+```{r fig.width=8, fig.height=5, fig.align='center'}
+atp_12 <- merge(atp_serves, atp_serves_clust[,c(1,29)], by = "serveid" )
+atp_12$cl12 <- factor(atp_12$cl12)
+atp_12_9 <- atp_12 %>% filter(server == "RAONIC", side == "Deuce", cl12 %in% c(1,7))
+atp_12_9 <- GeneratePoints(atp_12_9, cl12, arc3=10, plot=TRUE)
+atp_12_9$cl12 <- factor(atp_12_9$cl12)
+
+clrs <- scales::hue_pal()(12)
+p <- ggplot() + 
+  geom_path(data = courtTrace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = courtTrace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') 
+p + geom_line(aes(x=x,y=y, group=serveid, colour=cl12), data=atp_12_9) +
+  scale_colour_manual("cluster", values=clrs[c(1,7)], limits=c("1","7")) +
+  theme_court + coord_equal()
+```
+
+## Make it interactive
+
+```{r}
+plot_ly(atp_12_9, x = ~x, y = ~y, z = ~z, color = ~cl12) 
+```
+
+## Angle change to capture spin
+
+```{r fig.width=7, fig.height=3, fig.align='center'}
+a1 <- ggplot(atp_serves, aes(x=height_off_bounce, y=angle.change)) + geom_point() +
+  theme(aspect.ratio=1)
+a2 <- ggplot(atp_serves, aes(x=speed, y=angle.change)) + geom_point() +
+  theme(aspect.ratio=1)
+grid.arrange(a1, a2, ncol=2)
+```
+
+Angle change measures change in trajectory at the bounce. The negative values arise from angle change calculation. 
+
+##
+
+Mostly serves by Murray!
+
+```{r}
+atp_serves %>% filter(angle.change < 0) %>% select(server, receiver)
+```
+
+## Murray vs Raonic
+
+```{r fig.show='hide'}
+arc1 <- 10
+arc3 <- 0
+atp_serves <- atp_serves %>%
+  mutate(duration = arc1 * duration.arc1 + arc3 * duration.arc3,
+                          flip = sign(raw.x0.1),
+                          tserve = ifelse(abs(center.y)>2, "no", "yes"))
+arc_points <- generate_traj_points(atp_serves)
+all <- merge(arc_points, atp_serves, by="serveid")
+
+all_sub1 <- all %>% filter(scorer == 1 & side == "Ad" &
+                            (server %in% c("RAONIC", "MURRAY")& serve.x == 2))
+all_sub1$server <- as.character(all_sub1$server)
+all_hex1 <- hextri(all_sub1$x, all_sub1$y, all_sub1$server,
+                  col=c("#1f9e77","#d95ff9"), nbins=30)
+```
+
+```{r fig.width=6, fig.height=4, fig.align='center'}
+col.group <- unique(all_hex1$col)
+all_hex.dff <- data.frame(x=all_hex1$x[!is.na(all_hex1$x)], y=all_hex1$y[!is.na(all_hex1$x)],
+    tri=rep(1:length(all_hex1$col),
+            rep(3, length(all_hex1$col))),
+        col=rep(all_hex1$col,
+            rep(3, length(all_hex1$col))))
+ggplot(all_sub1) +
+  geom_path(data = courtTrace, aes(x = x, y = y),
+            color = 'grey90', size = 0.5) +
+  geom_segment(data = courtTrace, aes(x= 0, xend= 0, y= -6.5, yend= 6.5),
+               size = 0.5, color = 'darkgrey', lineend = 'round') +
+  geom_polygon(data=all_hex.dff, aes(x=x, y=y, group=tri, fill=col),
+               alpha=1) + scale_fill_identity() +
+  theme_court + coord_equal()
+```
+
+## Findings
+
+- The cluster analysis on the serve data essentially corroborates common knowledge about serve types, flat, top spin, slice, kick serves, but enables a finer dissection of serving style.
+
+- Other clustering methods may produce some differences results, but we think the clusters defined are fairly robust
+
+## Future research
+
+- Accurate spin variables to capture axis rotation and amount of spin on the ball
+- Functional based clustering may be an option to observe serve curvature. Should location be considered for "playing style", is a standardised impact point better? 
+- Combine serve type, with serve strategy. Do players serve differently to different opponents? Or do they stick a dominant strategy? 
+
+
+
